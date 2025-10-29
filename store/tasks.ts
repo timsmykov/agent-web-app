@@ -3,10 +3,12 @@
 import { create } from 'zustand';
 import type { TaskEvent, TaskStatus, TaskSummary } from '@/lib/tasks/store';
 import { connectTaskStream } from '@/lib/utils/sse';
+import { sendRequestToN8n } from '@/lib/n8nClient';
 import { useChatStore } from './chat';
 
 export type TaskWithHistory = TaskSummary & {
   history: TaskEvent[];
+  prompt?: string;
 };
 
 type TaskFilter = TaskStatus | 'all';
@@ -46,7 +48,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
               status: payload.status,
               createdAt: payload.history[0]?.ts ?? Date.now(),
               updatedAt: payload.history[payload.history.length - 1]?.ts ?? Date.now(),
-              history: payload.history
+              history: payload.history,
+              prompt: state.tasks[taskId]?.prompt
             }
           }
         }));
@@ -65,7 +68,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           status: event.status,
           createdAt: event.ts,
           updatedAt: event.ts,
-          history: []
+          history: [],
+          prompt: undefined
         };
 
         const nextHistory = [...existing.history, event];
@@ -85,6 +89,23 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       });
 
       useChatStore.getState().ingestTaskEvent(event);
+
+      if (event.status === 'succeeded') {
+        const prompt = get().tasks[event.taskId]?.prompt;
+        if (prompt) {
+          void (async () => {
+            const result = await sendRequestToN8n(prompt);
+            const { appendMessage } = useChatStore.getState();
+            appendMessage({
+              role: result.status === 'success' ? 'agent' : 'system',
+              content: result.message,
+              markdown: false,
+              taskId: event.taskId,
+              ts: Date.now()
+            });
+          })();
+        }
+      }
 
       if (event.status === 'succeeded' || event.status === 'failed') {
         useChatStore.getState().completeTaskSummary(event.taskId, event.status, event.message);
@@ -130,7 +151,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           status: 'queued',
           createdAt: now,
           updatedAt: now,
-          history: []
+          history: [],
+          prompt: input
         }
       }
     }));
@@ -153,7 +175,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         const existing = merged[summary.taskId];
         merged[summary.taskId] = {
           ...summary,
-          history: existing?.history ?? []
+          history: existing?.history ?? [],
+          prompt: existing?.prompt
         };
       });
       return { tasks: merged };

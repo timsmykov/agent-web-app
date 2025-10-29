@@ -34,3 +34,9 @@ export const payloadSchema = z
 export type MessagePayload = z.infer<typeof messageSchema>;
 export type MetaPayload = z.infer<typeof metaSchema>;
 export type DispatchPayload = z.infer<typeof payloadSchema>;
+
+export const n8nResultSchema = z.object({
+  text: z.string().min(1, 'text must be a non-empty string')
+});
+
+export type N8nResultPayload = z.infer<typeof n8nResultSchema>;

@@ -27,6 +27,7 @@ Then open [http://localhost:3000](http://localhost:3000) to explore the experien
 - **Task drawer** for filtering, searching, and highlighting simulated tasks with live SSE updates.
 - **Realtime task simulator** that mimics planning → execution → summarisation without external services.
 - **Accessibility touches** including high-contrast theme, keyboard and hotkey hints, scalable typography, and live captions during speech synthesis.
+- **n8n integration** sends every prompt to the webhook and surfaces completion responses directly in the chat.
 
 ## Voice Hotkeys
 
