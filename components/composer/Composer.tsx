@@ -7,6 +7,7 @@ import { useChatStore } from '@/store/chat';
 import { useTaskStore } from '@/store/tasks';
 import { useToast } from '@/components/ui/toast-provider';
 import { cn } from '@/lib/utils/cn';
+import { isRecognitionSupported } from '@/lib/audio/index';
 
 const commands = [
   {
@@ -26,6 +27,20 @@ const commands = [
   }
 ];
 
+interface RecognitionLike extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+}
+
+type RecognitionCtor = new () => RecognitionLike;
+
 export function Composer() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const composer = useChatStore((state) => state.composer);
@@ -35,8 +50,6 @@ export function Composer() {
   const setSubmitting = useChatStore((state) => state.setSubmitting);
   const isSubmitting = useChatStore((state) => state.isSubmitting);
   const setHighlightedTaskId = useChatStore((state) => state.setHighlightedTaskId);
-  const voiceOverlayOpen = useChatStore((state) => state.voiceOverlayOpen);
-  const setVoiceOverlayOpen = useChatStore((state) => state.setVoiceOverlayOpen);
   const setGhostText = useChatStore((state) => state.setGhostText);
   const updateMessage = useChatStore((state) => state.updateMessage);
   const sessionId = useChatStore((state) => state.sessionId);
@@ -44,6 +57,8 @@ export function Composer() {
   const createTask = useTaskStore((state) => state.createTask);
 
   const [commandCursor, setCommandCursor] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<RecognitionLike | null>(null);
 
   const visibleCommands = useMemo(() => {
     if (!composer.startsWith('/')) return [];
@@ -61,9 +76,127 @@ export function Composer() {
     autoResize();
   }, [composer, autoResize]);
 
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+    };
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    const recognition = recognitionRef.current;
+    if (!recognition) {
+      setIsRecording(false);
+      setGhostText('');
+      return;
+    }
+    try {
+      recognition.stop();
+    } catch (error) {
+      console.warn('Failed to stop speech recognition', error);
+    }
+    setIsRecording(false);
+    setGhostText('');
+  }, [setGhostText]);
+
+  const startRecording = useCallback(() => {
+    if (isRecording) {
+      return;
+    }
+    if (!isRecognitionSupported()) {
+      push({ title: 'Voice not available', description: 'Speech recognition is not supported in this browser.', variant: 'warn' });
+      return;
+    }
+
+    const Recognition: RecognitionCtor =
+      (window as typeof window & { webkitSpeechRecognition?: RecognitionCtor }).SpeechRecognition ||
+      (window as typeof window & { webkitSpeechRecognition?: RecognitionCtor }).webkitSpeechRecognition;
+
+    if (!Recognition) {
+      push({ title: 'Voice not available', description: 'Speech recognition API is not accessible.', variant: 'warn' });
+      return;
+    }
+
+    try {
+      const recognition = new Recognition();
+      recognition.lang = 'en-US';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onresult = (event) => {
+        let interim = '';
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            finalTranscript += result[0].transcript;
+          } else {
+            interim += result[0].transcript;
+          }
+        }
+
+        if (interim) {
+          setGhostText(interim.trim());
+        }
+
+        if (finalTranscript) {
+          const trimmed = finalTranscript.trim();
+          setGhostText('');
+          if (trimmed) {
+            const current = useChatStore.getState().composer.trimEnd();
+            const next = current ? `${current} ${trimmed}` : trimmed;
+            setComposer(next);
+            requestAnimationFrame(() => textareaRef.current?.focus());
+          }
+          stopRecording();
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error', event.error);
+        if (event.error !== 'aborted') {
+          push({ title: 'Speech recognition error', description: event.error, variant: 'warn' });
+        }
+        stopRecording();
+      };
+
+      recognition.onend = () => {
+        if (recognitionRef.current === recognition) {
+          recognitionRef.current = null;
+        }
+        setIsRecording(false);
+        setGhostText('');
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+      setIsRecording(true);
+      setGhostText('');
+    } catch (error) {
+      console.error('Failed to start speech recognition', error);
+      push({
+        title: 'Voice not available',
+        description: error instanceof Error ? error.message : 'Failed to start speech recognition.',
+        variant: 'warn'
+      });
+      setIsRecording(false);
+    }
+  }, [isRecording, push, setComposer, setGhostText, stopRecording]);
+
+  const toggleRecording = useCallback(() => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  }, [isRecording, startRecording, stopRecording]);
+
   const submit = useCallback(async () => {
     if (isSubmitting) {
       return;
+    }
+    if (isRecording) {
+      stopRecording();
     }
     const input = (composer || ghostText).trim();
     if (!input) {
@@ -130,7 +263,7 @@ export function Composer() {
     }
 
     setSubmitting(false);
-  }, [appendMessage, composer, createTask, ghostText, isSubmitting, push, setComposer, setGhostText, setHighlightedTaskId, setSubmitting, sessionId, updateMessage]);
+  }, [appendMessage, composer, createTask, ghostText, isRecording, isSubmitting, push, setComposer, setGhostText, setHighlightedTaskId, setSubmitting, sessionId, stopRecording, updateMessage]);
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -157,15 +290,6 @@ export function Composer() {
     [submit, visibleCommands, commandCursor, setComposer]
   );
 
-  const toggleVoice = () => {
-    if (voiceOverlayOpen) {
-      setVoiceOverlayOpen(false);
-      setGhostText('');
-    } else {
-      setVoiceOverlayOpen(true);
-    }
-  };
-
   return (
     <div className="relative rounded-[var(--radius)] border border-white/10 bg-black/40 p-4 backdrop-blur-xl shadow-panel">
       <div className="relative">
@@ -186,11 +310,11 @@ export function Composer() {
           <Button
             type="button"
             size="icon"
-            variant={voiceOverlayOpen ? 'outline' : 'ghost'}
-            className={cn('border-white/10', voiceOverlayOpen && 'border-[var(--accent-0)] text-[var(--accent-0)]')}
-            onClick={toggleVoice}
-            aria-pressed={voiceOverlayOpen}
-            aria-label="Toggle voice mode"
+            variant={isRecording ? 'outline' : 'ghost'}
+            className={cn('border-white/10 transition-colors', isRecording && 'border-[var(--accent-0)] text-[var(--accent-0)]')}
+            onClick={toggleRecording}
+            aria-pressed={isRecording}
+            aria-label={isRecording ? 'Stop voice dictation' : 'Start voice dictation'}
           >
             <Mic className="h-4 w-4" />
           </Button>
@@ -204,7 +328,7 @@ export function Composer() {
           <Command className="h-3.5 w-3.5" />
           <span>Enter to send · Shift+Enter for newline</span>
         </div>
-        <span>Mic: {voiceOverlayOpen ? 'listening' : 'off'} · Esc to exit</span>
+        <span>Mic: {isRecording ? 'listening' : 'off'} · Esc to exit voice mode</span>
       </div>
       {visibleCommands.length > 0 && (
         <div className="absolute bottom-[110px] left-4 w-72 rounded-[var(--radius)] border border-white/10 bg-black/70 p-3 text-sm shadow-xl backdrop-blur-xl">

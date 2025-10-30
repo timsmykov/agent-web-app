@@ -23,10 +23,10 @@ Then open [http://localhost:3000](http://localhost:3000) to explore the experien
 
 - **Unified chat timeline** with markdown rendering, code copy, and animated task cards.
 - **Command palette** via `/plan`, `/summarize`, and `/run-flow` shortcuts inside the composer.
-- **Voice mode** overlay featuring a reactive orb, Web Speech API recognition, microphone VAD, and browser TTS with subtitles.
+- **Voice mode** overlay featuring a reactive orb, Web Speech API recognition, microphone VAD, and a manual mic toggle.
 - **Task drawer** for filtering, searching, and highlighting simulated tasks with live SSE updates.
 - **Realtime task simulator** that mimics planning → execution → summarisation without external services.
-- **Accessibility touches** including high-contrast theme, keyboard and hotkey hints, scalable typography, and live captions during speech synthesis.
+- **Accessibility touches** including high-contrast theme, keyboard and hotkey hints, and responsive typography.
 - **n8n integration** sends every prompt to the webhook and surfaces completion responses directly in the chat.
 
 ## Voice Hotkeys
@@ -34,7 +34,7 @@ Then open [http://localhost:3000](http://localhost:3000) to explore the experien
 - `Enter` – send the current message
 - `Shift + Enter` – insert a newline
 - `Esc` – exit voice overlay
-- Microphone button – toggle voice mode on/off
+- Microphone button – start/stop inline voice dictation
 
 ## n8n Webhook
 

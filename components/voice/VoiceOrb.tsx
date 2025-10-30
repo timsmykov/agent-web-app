@@ -9,13 +9,22 @@ const vertexShader = /* glsl */ `
   varying vec3 vNormalWorld;
   varying vec3 vPosition;
   uniform float uAmplitude;
+  uniform float uTime;
+  uniform float uPulse;
+
+  float triNoise(vec3 p) {
+    return sin(p.x * 3.3 + uTime * 1.3) * sin(p.y * 3.7 + uTime * 1.1) * sin(p.z * 3.1 + uTime * 1.5);
+  }
 
   void main() {
-    float scale = 1.0 + uAmplitude * 0.08;
-    vec3 scaled = position * scale;
+    float flow = triNoise(position * 1.6);
+    float displacement = flow * 0.08 * (0.3 + uAmplitude * 1.4);
+    float ripple = sin(uTime * 1.2 + length(position.xy) * 5.0) * 0.03;
+    float swell = 1.0 + uPulse * 0.08;
+    vec3 displaced = position * swell + normal * (displacement + ripple);
     vNormalWorld = normalize(normalMatrix * normal);
-    vPosition = scaled;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(scaled, 1.0);
+    vPosition = displaced;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
   }
 `;
 
@@ -27,27 +36,28 @@ const fragmentShader = /* glsl */ `
   uniform float uCentroid;
   uniform float uTime;
   uniform float uModeMix;
+  uniform float uPulse;
 
   void main() {
     vec3 normal = normalize(vNormalWorld);
-    float vertical = clamp(vPosition.y * 0.5 + 0.5, 0.0, 1.0);
-    float swirl = sin(uTime * (0.9 + uAmplitude * 1.3) + vPosition.x * 3.8 + vPosition.y * 4.2 + vPosition.z * 2.4);
-    float wave = cos(uTime * 0.45 + vPosition.y * 5.5);
-    float blend = clamp(0.5 + swirl * 0.25 + uAmplitude * 0.35, 0.0, 1.0);
-    float crest = clamp(vertical + wave * 0.2, 0.0, 1.0);
+    float fresnel = pow(1.0 - dot(normal, vec3(0.0, 0.0, 1.0)), 3.0);
+    float axial = sin(uTime * 0.5 + vPosition.y * 4.0 + uModeMix * 2.4);
+    float swirl = sin(uTime * 0.8 + vPosition.x * 6.0) * cos(vPosition.z * 2.5);
+    float band = clamp((swirl + axial) * 0.25 + 0.5 + uCentroid * 0.1, 0.0, 1.0);
 
-    vec3 sky = vec3(0.94, 0.98, 1.0);
-    vec3 oceanLow = mix(vec3(0.04, 0.32, 0.9), vec3(0.09, 0.42, 0.95), clamp(uCentroid + 0.15, 0.0, 1.0));
-    vec3 oceanHigh = mix(vec3(0.18, 0.6, 1.0), vec3(0.4, 0.75, 1.0), clamp(uModeMix, 0.0, 1.0));
+    vec3 baseLow = vec3(0.09, 0.2, 0.58);
+    vec3 baseMid = vec3(0.2, 0.42, 0.96);
+    vec3 baseHigh = vec3(0.65, 0.35 + uModeMix * 0.25, 1.0);
 
-    vec3 base = mix(oceanLow, oceanHigh, blend);
-    vec3 sheen = mix(base, sky, smoothstep(0.25, 0.9, crest + uAmplitude * 0.25));
+    vec3 gradient = mix(baseLow, baseMid, band);
+    gradient = mix(gradient, baseHigh, smoothstep(0.4, 1.0, band + uAmplitude * 0.2));
 
-    float rim = pow(1.0 - dot(normal, vec3(0.0, 0.0, 1.0)), 2.2);
-    vec3 rimColor = vec3(0.6, 0.8, 1.2) * rim * (0.2 + uAmplitude * 0.4);
+    float pulseHalo = smoothstep(0.4, 0.95, length(vPosition.xy)) * (0.25 + uPulse * 0.35);
+    vec3 haloColor = vec3(0.6, 0.85, 1.2) * pulseHalo;
+    vec3 rim = vec3(0.92, 0.98, 1.25) * fresnel * (0.3 + uAmplitude * 0.6);
 
-    vec3 color = sheen + rimColor;
-    float alpha = 0.85 + uAmplitude * 0.08;
+    vec3 color = gradient + haloColor + rim;
+    float alpha = 0.75 + uAmplitude * 0.15;
     gl_FragColor = vec4(color, alpha);
   }
 `;
@@ -90,7 +100,8 @@ export function VoiceOrb({ mode, amplitude, centroid }: VoiceOrbProps) {
         uTime: { value: 0 },
         uAmplitude: { value: 0 },
         uCentroid: { value: 0 },
-        uModeMix: { value: 0 }
+        uModeMix: { value: 0 },
+        uPulse: { value: 0 }
       },
       transparent: true,
       vertexShader,
@@ -116,7 +127,8 @@ export function VoiceOrb({ mode, amplitude, centroid }: VoiceOrbProps) {
 
     const animate = (time: number) => {
       if (!materialRef.current) return;
-      materialRef.current.uniforms.uTime.value = time * 0.0015;
+      materialRef.current.uniforms.uTime.value = time * 0.0012;
+      materialRef.current.uniforms.uPulse.value = 0.5 + 0.5 * Math.sin(time * 0.001);
       renderer.render(scene, camera);
       frameRef.current = requestAnimationFrame(animate);
     };
@@ -147,10 +159,11 @@ export function VoiceOrb({ mode, amplitude, centroid }: VoiceOrbProps) {
         ctx.clearRect(0, 0, width, height);
         const radius = Math.min(width, height) / 2 - 4;
         const t = Date.now() * 0.002;
-        const offset = Math.sin(t) * amplitude * radius * 1.4;
-        const gradient = ctx.createLinearGradient(0, -radius + offset, 0, radius - offset);
-        gradient.addColorStop(0, '#f1f7ff');
-        gradient.addColorStop(1, '#1f7bff');
+        const pulse = 0.55 + 0.45 * Math.sin(t * 0.8);
+        const gradient = ctx.createRadialGradient(0, 0, radius * 0.15, 0, 0, radius);
+        gradient.addColorStop(0, 'rgba(160, 210, 255, 0.85)');
+        gradient.addColorStop(0.45, 'rgba(74, 132, 255, 0.65)');
+        gradient.addColorStop(1, 'rgba(18, 26, 68, 0.2)');
 
         ctx.save();
         ctx.translate(width / 2, height / 2);
@@ -159,12 +172,25 @@ export function VoiceOrb({ mode, amplitude, centroid }: VoiceOrbProps) {
         ctx.fillStyle = gradient;
         ctx.fill();
 
-        const ripple = radius + Math.sin(t * 1.1) * amplitude * 24;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-        ctx.lineWidth = 2;
+        const ripple = radius * (0.92 + Math.sin(t * 1.4) * 0.05 * (1 + amplitude * 1.5));
+        ctx.strokeStyle = 'rgba(120, 180, 255, 0.45)';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(0, 0, ripple, 0, Math.PI * 2);
         ctx.stroke();
+
+        const sweepCount = 5;
+        for (let i = 0; i < sweepCount; i += 1) {
+          const angle = t * 0.9 + (i / sweepCount) * Math.PI * 2;
+          const inner = radius * 0.3;
+          const outer = radius * (0.6 + 0.25 * pulse);
+          ctx.strokeStyle = `rgba(130, 200, 255, ${0.08 + pulse * 0.1})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+          ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+          ctx.stroke();
+        }
         ctx.restore();
 
         requestAnimationFrame(draw);

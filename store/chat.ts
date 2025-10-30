@@ -11,9 +11,7 @@ export interface ChatState {
   ghostText: string;
   voiceOverlayOpen: boolean;
   voiceMode: VoiceMode;
-  subtitles: string;
   highlightedTaskId?: string;
-  pendingSpeech?: string;
   isSubmitting: boolean;
   initialized: boolean;
   sessionId: string;
@@ -22,10 +20,7 @@ export interface ChatState {
   setGhostText: (value: string) => void;
   setVoiceOverlayOpen: (open: boolean) => void;
   setVoiceMode: (mode: VoiceMode) => void;
-  setSubtitles: (text: string) => void;
   setHighlightedTaskId: (taskId?: string) => void;
-  queueSpeech: (text: string) => void;
-  clearSpeech: () => void;
   setSubmitting: (value: boolean) => void;
   ensureWelcome: () => void;
   ingestTaskEvent: (event: TaskEvent) => void;
@@ -41,9 +36,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   ghostText: '',
   voiceOverlayOpen: false,
   voiceMode: 'idle',
-  subtitles: '',
   highlightedTaskId: undefined,
-  pendingSpeech: undefined,
   isSubmitting: false,
   initialized: false,
   sessionId: crypto.randomUUID(),
@@ -55,12 +48,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   setGhostText: (value) => set({ ghostText: value }),
   setVoiceOverlayOpen: (open) =>
-    set(() => ({ voiceOverlayOpen: open, voiceMode: open ? 'listening' : 'idle' })),
+    set(() => ({ voiceOverlayOpen: open, voiceMode: 'idle' })),
   setVoiceMode: (mode) => set({ voiceMode: mode }),
-  setSubtitles: (text) => set({ subtitles: text }),
   setHighlightedTaskId: (taskId) => set({ highlightedTaskId: taskId }),
-  queueSpeech: (text) => set({ pendingSpeech: text, subtitles: text }),
-  clearSpeech: () => set({ pendingSpeech: undefined, subtitles: '' }),
   setSubmitting: (value) => set({ isSubmitting: value }),
   ensureWelcome: () => {
     if (get().initialized) return;
@@ -115,7 +105,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       ]
     }));
-    get().queueSpeech(summary);
   },
   updateMessage: (id, patch) =>
     set((state) => ({
