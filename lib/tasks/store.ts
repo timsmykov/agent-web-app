@@ -47,17 +47,28 @@ export type TaskEventInput = Omit<TaskEvent, 'seq' | 'ts' | 'taskId'> & {
   ts?: number;
 };
 
+type CreateTaskOptions = {
+  taskId?: string;
+  simulate?: boolean;
+  status?: TaskStatus;
+  createdAt?: number;
+};
+
 class TaskStore {
   private tasks = new Map<string, TaskRecord>();
   private subscribers = new Map<string, Set<TaskSubscriber>>();
   private seqCounters = new Map<string, number>();
 
-  createTask(input: string): TaskSummary {
-    const now = Date.now();
-    const taskId = crypto.randomUUID();
+  createTask(input: string, options?: CreateTaskOptions): TaskSummary {
+    const now = options?.createdAt ?? Date.now();
+    const taskId = options?.taskId ?? crypto.randomUUID();
+    if (this.tasks.has(taskId)) {
+      throw new Error(`Task with id ${taskId} already exists.`);
+    }
+    const initialStatus = options?.status ?? 'queued';
     const record: TaskRecord = {
       taskId,
-      status: 'queued',
+      status: initialStatus,
       createdAt: now,
       updatedAt: now,
       input,
@@ -67,10 +78,12 @@ class TaskStore {
     this.tasks.set(taskId, record);
     this.seqCounters.set(taskId, 0);
 
-    // Kick off simulator asynchronously to avoid blocking response.
-    setTimeout(() => {
-      runSimulatedTask(taskId, input, (event) => this.pushEvent(taskId, event));
-    }, 15);
+    if (options?.simulate !== false) {
+      // Kick off simulator asynchronously to avoid blocking response.
+      setTimeout(() => {
+        runSimulatedTask(taskId, input, (event) => this.pushEvent(taskId, event));
+      }, 15);
+    }
 
     return {
       taskId,

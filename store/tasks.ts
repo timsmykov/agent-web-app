@@ -18,7 +18,7 @@ type TaskState = {
   filter: TaskFilter;
   search: string;
   subscribeToTask: (taskId: string) => Promise<void>;
-  createTask: (input: string) => Promise<string>;
+  createTask: (input: string, taskId?: string) => Promise<string>;
   refreshTasks: (status?: TaskStatus) => Promise<void>;
   setFilter: (filter: TaskFilter) => void;
   setSearch: (value: string) => void;
@@ -125,8 +125,12 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
     connections.set(taskId, handle);
   },
-  async createTask(input) {
-    const body = JSON.stringify({ input });
+  async createTask(input, taskId) {
+    const payload: { input: string; taskId?: string } = { input };
+    if (taskId) {
+      payload.taskId = taskId;
+    }
+    const body = JSON.stringify(payload);
     const response = await fetch('/api/tasks', {
       method: 'POST',
       headers: {
@@ -140,14 +144,14 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       throw new Error(payload.error ?? 'Failed to create task');
     }
 
-    const { taskId } = (await response.json()) as { taskId: string };
+    const { taskId: createdTaskId } = (await response.json()) as { taskId: string };
 
     const now = Date.now();
     set((state) => ({
       tasks: {
         ...state.tasks,
-        [taskId]: {
-          taskId,
+        [createdTaskId]: {
+          taskId: createdTaskId,
           status: 'queued',
           createdAt: now,
           updatedAt: now,
@@ -157,8 +161,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       }
     }));
 
-    await get().subscribeToTask(taskId);
-    return taskId;
+    await get().subscribeToTask(createdTaskId);
+    return createdTaskId;
   },
   async refreshTasks(status) {
     const query = status ? `?status=${status}` : '';

@@ -1,5 +1,7 @@
 const REQUIRED_ENV = ['N8N_WEBHOOK_TEST_URL', 'N8N_WEBHOOK_PROD_URL'] as const;
 
+type N8nMode = 'test' | 'prod';
+
 type EnvKey = (typeof REQUIRED_ENV)[number];
 
 function readEnv(key: EnvKey): string {
@@ -25,7 +27,7 @@ function validateUrl(raw: string, label: string): string {
 export function getN8nUrl(): string {
   REQUIRED_ENV.forEach((key) => readEnv(key));
 
-  const mode = process.env.N8N_MODE === 'prod' ? 'prod' : 'test';
+  const mode = getN8nMode();
   const target = mode === 'prod' ? readEnv('N8N_WEBHOOK_PROD_URL') : readEnv('N8N_WEBHOOK_TEST_URL');
 
   return validateUrl(target, `${mode} mode`);
@@ -33,4 +35,8 @@ export function getN8nUrl(): string {
 
 export function getN8nProdUrl(): string {
   return validateUrl(readEnv('N8N_WEBHOOK_PROD_URL'), 'production mode');
+}
+
+export function getN8nMode(): N8nMode {
+  return process.env.N8N_MODE === 'prod' ? 'prod' : 'test';
 }

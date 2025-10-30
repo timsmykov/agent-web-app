@@ -107,7 +107,7 @@ export function Composer() {
       updateMessage(messageId, { status: 'sent' });
       dispatched = true;
 
-      const taskId = await createTask(input);
+      const taskId = await createTask(input, messageId);
       setHighlightedTaskId(taskId);
     } catch (error) {
       console.error(error);
