@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 
-export type VoiceOrbMode = 'idle' | 'listening' | 'thinking' | 'speaking';
+export type VoiceOrbMode = 'idle' | 'listening' | 'thinking';
 
 const vertexShader = /* glsl */ `
   varying vec3 vNormalWorld;
@@ -208,7 +208,6 @@ export function VoiceOrb({ mode, amplitude, centroid }: VoiceOrbProps) {
     let modeMix = 0.18;
     if (mode === 'listening') modeMix = 0.45;
     if (mode === 'thinking') modeMix = 0.3;
-    if (mode === 'speaking') modeMix = 0.65;
     materialRef.current.uniforms.uModeMix.value = modeMix;
   }, [amplitude, centroid, mode]);
 

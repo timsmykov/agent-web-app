@@ -15,23 +15,11 @@ interface MessageBubbleProps {
   isHighlighted?: boolean;
 }
 
-const roleConfig = {
-  user: {
-    icon: <User className="h-4 w-4" />,
-    color: 'from-[var(--accent-0)] to-[var(--accent-1)]'
-  },
-  agent: {
-    icon: <Bot className="h-4 w-4" />,
-    color: 'from-indigo-400 to-fuchsia-500'
-  },
-  system: {
-    icon: <Bot className="h-4 w-4" />,
-    color: 'from-slate-500 to-slate-700'
-  },
-  tool: {
-    icon: <Bot className="h-4 w-4" />,
-    color: 'from-sky-500 to-purple-500'
-  }
+const roleIcon = {
+  user: <User className="h-4 w-4" />,
+  agent: <Bot className="h-4 w-4" />,
+  system: <Bot className="h-4 w-4" />,
+  tool: <Bot className="h-4 w-4" />
 } as const;
 
 function isTaskEvent(data: unknown): data is TaskEvent {
@@ -48,7 +36,6 @@ const statusCopy: Record<string, { label: string; badge: 'default' | 'success' |
 
 export function MessageBubble({ message, isHighlighted }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
-  const role = roleConfig[message.role];
   const isTool = message.role === 'tool';
   const event = isTaskEvent(message.data) ? message.data : undefined;
 
@@ -164,7 +151,7 @@ export function MessageBubble({ message, isHighlighted }: MessageBubbleProps) {
           isHighlighted ? 'ring-2 ring-[var(--accent-0)]' : ''
         )}
       >
-        {role.icon}
+        {roleIcon[message.role]}
       </div>
       <div className="flex max-w-3xl flex-col gap-2">
         <div

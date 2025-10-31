@@ -55,35 +55,7 @@ body::before {
   border-radius: 9999px;
 }
 
-.glass-card {
-  background: var(--panel);
-  backdrop-filter: blur(var(--blur));
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
 @layer utilities {
-  .noise-bg {
-    position: relative;
-  }
-
-  .noise-bg::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.08;
-    mix-blend-mode: screen;
-    background: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)"/%3E%3C/svg%3E');
-  }
-
-  .frosted {
-    background: var(--panel);
-    border: 1px solid var(--stroke);
-    backdrop-filter: blur(var(--blur));
-  }
-
   .text-gradient {
     background-image: linear-gradient(120deg, var(--accent-0), var(--accent-1));
     -webkit-background-clip: text;

@@ -37,30 +37,9 @@ const config: Config = {
       boxShadow: {
         glow: '0 0 30px rgba(107, 92, 255, 0.45)',
         panel: 'var(--shadow)'
-      },
-      backdropBlur: {
-        glass: 'var(--blur)'
-      },
-      screens: {
-        tall: { raw: '(min-height: 900px)' }
-      },
-      keyframes: {
-        'pulse-glow': {
-          '0%, 100%': { opacity: '0.6' },
-          '50%': { opacity: '1' }
-        },
-        'slide-up-fade': {
-          '0%': { opacity: '0', transform: 'translateY(12px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' }
-        }
-      },
-      animation: {
-        'pulse-glow': 'pulse-glow 3s ease-in-out infinite',
-        'slide-up-fade': 'slide-up-fade 0.4s ease forwards'
       }
     }
-  },
-  plugins: [require('tailwindcss-animate')]
+  }
 };
 
 export default config;

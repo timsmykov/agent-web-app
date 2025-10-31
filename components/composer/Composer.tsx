@@ -7,7 +7,7 @@ import { useChatStore } from '@/store/chat';
 import { useTaskStore } from '@/store/tasks';
 import { useToast } from '@/components/ui/toast-provider';
 import { cn } from '@/lib/utils/cn';
-import { isRecognitionSupported } from '@/lib/audio/index';
+import { describeRecognitionError, isRecognitionSupported } from '@/lib/audio/index';
 
 const commands = [
   {
@@ -155,7 +155,8 @@ export function Composer() {
       recognition.onerror = (event) => {
         console.error('Speech recognition error', event.error);
         if (event.error !== 'aborted') {
-          push({ title: 'Speech recognition error', description: event.error, variant: 'warn' });
+          const message = describeRecognitionError(event.error);
+          push({ title: 'Speech recognition error', description: message, variant: 'warn' });
         }
         stopRecording();
       };

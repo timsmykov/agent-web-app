@@ -11,7 +11,8 @@ import { createVAD } from '@/lib/audio/vad';
 import {
   initAudioAnalyser,
   sampleAudioMetrics,
-  isRecognitionSupported
+  isRecognitionSupported,
+  describeRecognitionError
 } from '@/lib/audio/index';
 import type { AudioAnalyserHandle } from '@/lib/audio/index';
 import { cn } from '@/lib/utils/cn';
@@ -42,10 +43,6 @@ const modeCopy: Record<VoiceOrbMode, { title: string; caption: string }> = {
   thinking: {
     title: 'Processing…',
     caption: 'Working through what you just shared.'
-  },
-  speaking: {
-    title: 'Responding…',
-    caption: 'Streaming the latest summary.'
   }
 };
 
@@ -245,8 +242,13 @@ export function VoiceOverlay() {
       };
       recognition.onerror = (event) => {
         console.error('Speech recognition error', event.error);
-        setError(event.error);
-        push({ title: 'Speech recognition error', description: event.error, variant: 'warn' });
+        if (event.error !== 'aborted') {
+          const message = describeRecognitionError(event.error);
+          setError(message);
+          push({ title: 'Speech recognition error', description: message, variant: 'warn' });
+        } else {
+          setError(null);
+        }
         setMicEnabled(false);
       };
       recognition.onend = () => {

@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import type { ChatMessage, TaskEvent, TaskStatus } from '@/lib/tasks/store';
 
-export type VoiceMode = 'idle' | 'listening' | 'thinking' | 'speaking';
+export type VoiceMode = 'idle' | 'listening' | 'thinking';
 
 export interface ChatState {
   messages: ChatMessage[];
@@ -24,7 +24,7 @@ export interface ChatState {
   setSubmitting: (value: boolean) => void;
   ensureWelcome: () => void;
   ingestTaskEvent: (event: TaskEvent) => void;
-  completeTaskSummary: (taskId: string, status: TaskStatus, message?: string) => void;
+  completeTaskSummary: (taskId: string, status: TaskStatus, message?: string, prompt?: string) => void;
   updateMessage: (id: string, patch: Partial<ChatMessage>) => void;
 }
 
@@ -87,19 +87,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ]
     }));
   },
-  completeTaskSummary: (taskId, status, message) => {
+  completeTaskSummary: (taskId, status, message, prompt) => {
     const summary =
       message ??
       (status === 'succeeded'
         ? 'Task completed successfully.'
         : 'Task ended with issues.');
+    const content = prompt ? `${summary}\n\n*Original request:* ${prompt}` : summary;
     set((state) => ({
       messages: [
         ...state.messages,
         {
           id: `${taskId}::final`,
           role: status === 'succeeded' ? 'agent' : 'system',
-          content: summary,
+          content,
           taskId,
           ts: Date.now()
         }

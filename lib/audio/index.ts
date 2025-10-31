@@ -10,8 +10,6 @@ export type AudioMetrics = {
   centroid: number;
 };
 
-const speechIntervals = new WeakMap<SpeechSynthesisUtterance, number>();
-
 export async function initAudioAnalyser(): Promise<AudioAnalyserHandle> {
   if (typeof window === 'undefined') {
     throw new Error('Audio analyser can only be created in the browser.');
@@ -72,62 +70,22 @@ export function sampleAudioMetrics(analyser: AnalyserNode): AudioMetrics {
   };
 }
 
-export function isSpeechSupported() {
-  return typeof window !== 'undefined' && 'speechSynthesis' in window;
-}
-
 export function isRecognitionSupported() {
   if (typeof window === 'undefined') return false;
   return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
 }
 
-export type SpeakHandlers = {
-  onStart?: () => void;
-  onEnd?: () => void;
-  onBoundary?: (charIndex: number) => void;
-  onViseme?: (value: number) => void;
+const recognitionErrorMessages: Record<string, string> = {
+  'no-speech': 'No speech detected. Check your microphone and try again.',
+  'audio-capture': 'Microphone not available. Check permissions or reconnect the device.',
+  'not-allowed': 'Microphone access is blocked. Allow access in the browser and try again.',
+  aborted: 'Listening stopped before any speech was captured.',
+  network: 'Speech recognition service is unavailable right now. Please try again shortly.',
+  'service-not-allowed': 'Speech recognition service is not available in this context.',
+  'bad-grammar': 'Speech was captured but could not be understood.',
+  'language-not-supported': 'This language is not supported by the speech recogniser.'
 };
 
-export function speakText(text: string, handlers: SpeakHandlers = {}) {
-  if (!isSpeechSupported()) {
-    throw new Error('speechSynthesis API not available in this browser.');
-  }
-
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'en-US';
-  utterance.rate = 1;
-  utterance.pitch = 1;
-
-  utterance.onstart = () => {
-    handlers.onStart?.();
-    const startedAt = performance.now();
-    const interval = window.setInterval(() => {
-      const elapsed = (performance.now() - startedAt) / 1000;
-      const value = 0.2 + 0.4 * Math.sin(elapsed * 3.2) + 0.3 * Math.random();
-      handlers.onViseme?.(Math.min(1, Math.max(0, value)));
-    }, 80);
-    speechIntervals.set(utterance, interval);
-  };
-
-  utterance.onend = () => {
-    handlers.onEnd?.();
-    const interval = speechIntervals.get(utterance);
-    if (interval) {
-      window.clearInterval(interval);
-      speechIntervals.delete(utterance);
-    }
-  };
-
-  utterance.onboundary = (event) => {
-    handlers.onBoundary?.(event.charIndex);
-  };
-
-  window.speechSynthesis.speak(utterance);
-  return utterance;
-}
-
-export function cancelSpeech() {
-  if (!isSpeechSupported()) return;
-  window.speechSynthesis.cancel();
+export function describeRecognitionError(code: string): string {
+  return recognitionErrorMessages[code] ?? 'Speech recognition failed. Please try again.';
 }

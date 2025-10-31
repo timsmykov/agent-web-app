@@ -55,4 +55,4 @@ curl -X POST http://localhost:3000/api/n8n/dispatch \
 ## Notes
 
 - All data lives in-memory; restarting the dev server resets tasks.
-- Voice capture relies on browser APIs (Web Speech & speechSynthesis). Use a Chromium-based browser for best results.
+- Voice capture relies on the browser Web Speech API for recognition; use a Chromium-based browser for best results.

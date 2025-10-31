@@ -22,6 +22,7 @@ type TaskState = {
   refreshTasks: (status?: TaskStatus) => Promise<void>;
   setFilter: (filter: TaskFilter) => void;
   setSearch: (value: string) => void;
+  clearCompletedHighlight: (taskId: string) => void;
 };
 
 const connections = new Map<string, { close: () => void }>();
@@ -72,6 +73,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           prompt: undefined
         };
 
+        if (existing.history.some((item) => item.seq === event.seq)) {
+          return state;
+        }
+
         const nextHistory = [...existing.history, event];
         const nextTask: TaskWithHistory = {
           ...existing,
@@ -108,7 +113,9 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       }
 
       if (event.status === 'succeeded' || event.status === 'failed') {
-        useChatStore.getState().completeTaskSummary(event.taskId, event.status, event.message);
+        const prompt = get().tasks[event.taskId]?.prompt;
+        useChatStore.getState().completeTaskSummary(event.taskId, event.status, event.message, prompt);
+        get().clearCompletedHighlight(event.taskId);
         const connection = connections.get(event.taskId);
         if (connection) {
           setTimeout(() => connection.close(), 1500);
@@ -187,5 +194,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     });
   },
   setFilter: (filter) => set({ filter }),
-  setSearch: (value) => set({ search: value })
+  setSearch: (value) => set({ search: value }),
+  clearCompletedHighlight: (taskId) => {
+    const { highlightedTaskId, setHighlightedTaskId } = useChatStore.getState();
+    if (highlightedTaskId === taskId) {
+      setHighlightedTaskId(undefined);
+    }
+  }
 }));

@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils/cn';
 import { useTaskStore } from '@/store/tasks';
 import { useChatStore } from '@/store/chat';
 import type { TaskStatus } from '@/lib/tasks/store';
@@ -46,6 +47,7 @@ export function TaskDrawer() {
   const tasks = useTaskStore((state) => state.tasks);
   const setHighlightedTaskId = useChatStore((state) => state.setHighlightedTaskId);
   const subscribeToTask = useTaskStore((state) => state.subscribeToTask);
+  const highlightedTaskId = useChatStore((state) => state.highlightedTaskId);
 
   useEffect(() => {
     if (open) {
@@ -99,6 +101,7 @@ export function TaskDrawer() {
             <div className="space-y-3">
               {items.map((task) => {
                 const meta = statusMeta[task.status];
+                const isHighlighted = highlightedTaskId === task.taskId;
                 return (
                   <button
                     type="button"
@@ -107,13 +110,19 @@ export function TaskDrawer() {
                       setHighlightedTaskId(task.taskId);
                       subscribeToTask(task.taskId);
                     }}
-                    className="w-full rounded-[var(--radius)] border border-white/10 bg-black/40 p-4 text-left transition hover:border-[var(--accent-0)] hover:bg-[var(--accent-0)]/10"
+                    className={cn(
+                      'w-full rounded-[var(--radius)] border border-white/10 bg-black/40 p-4 text-left transition hover:border-[var(--accent-0)] hover:bg-[var(--accent-0)]/10',
+                      isHighlighted && 'border-[var(--accent-0)] bg-[var(--accent-0)]/10 shadow-glow'
+                    )}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="text-xs uppercase tracking-[0.28em] text-white/50">
+                      <div className={cn('text-xs uppercase tracking-[0.28em] text-white/50', isHighlighted && 'text-[var(--accent-0)]')}>
                         {task.taskId.slice(0, 8)}
                       </div>
-                      <Badge variant={meta.tone}>{meta.label}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={meta.tone}>{meta.label}</Badge>
+                        {isHighlighted && <Badge variant="default">Selected</Badge>}
+                      </div>
                     </div>
                     <div className="mt-2 text-sm text-white/90">
                       Last update ·{' '}
@@ -126,6 +135,9 @@ export function TaskDrawer() {
                       {meta.icon}
                       <span>{task.history.at(-1)?.message ?? 'Awaiting updates'}</span>
                     </div>
+                    {isHighlighted && (
+                      <div className="mt-3 text-xs text-[var(--accent-0)]">View updates in chat timeline</div>
+                    )}
                   </button>
                 );
               })}
